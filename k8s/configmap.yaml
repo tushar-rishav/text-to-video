@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: text-to-video-config
+  namespace: text-to-video
+data:
+  DB_HOST: "mysql-service"
+  DB_PORT: "3306"
+  DB_NAME: "text_to_video"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  PORT: "8080" 

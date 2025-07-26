@@ -1,0 +1,19 @@
+{
+  "name": "text-to-video-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Text-to-Video API",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "svelte": "^4.2.7",
+    "vite": "^5.0.3"
+  },
+  "dependencies": {
+    "svelte-spa-router": "^4.0.0"
+  }
+} 
