@@ -124,7 +124,7 @@ def update_job_status(job_id: str, status: str, video_url: str = None, error: st
             error=error
         )
         
-        redis_client.publish("job_updates", job_update.json())
+        redis_client.publish("job_updates", job_update.model_dump_json())
         logger.info(f"Job {job_id} status updated to {status}")
         
     except Exception as e:
@@ -145,7 +145,7 @@ def generate_video(prompt: str, job_id: str) -> str:
                 prompt=prompt,
                 num_inference_steps=50,
                 guidance_scale=7.5,
-                num_frames=16,  # Generate 16 frames
+                num_frames=84,  # Generate 16 frames
                 height=256,
                 width=256
             ).frames

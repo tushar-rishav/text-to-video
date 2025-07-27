@@ -114,11 +114,12 @@ func initDatabase() {
 	CREATE TABLE IF NOT EXISTS jobs (
 		id VARCHAR(36) PRIMARY KEY,
 		prompt TEXT NOT NULL,
-		status VARCHAR(20) NOT NULL DEFAULT 'pending',
+		status ENUM('pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending',
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 		video_url VARCHAR(500),
-		error TEXT
+		error TEXT,
+		INDEX idx_status (status)
 	)`
 
 	_, err = db.Exec(createTableSQL)
@@ -217,7 +218,8 @@ func submitJob(c *gin.Context) {
 	err = rdb.Publish(ctx, "video_jobs", jobData).Err()
 	if err != nil {
 		logger.Errorf("Failed to publish job to Redis: %v", err)
-		// Don't fail the request, just log the error
+		c.JSON(http.StatusInternalServerError, SubmitResponse{Error: "Failed to create job"})
+		return
 	}
 
 	logger.Infof("Job submitted successfully: %s", jobID)
