@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	db     *sql.DB
-	rdb    *redis.Client
-	logger *logrus.Logger
+	db       *sql.DB
+	rdb      *redis.Client
+	logger   *logrus.Logger
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
@@ -61,7 +61,7 @@ type StatusResponse struct {
 
 // ListResponse represents the response for job listing
 type ListResponse struct {
-	Jobs []Job  `json:"jobs"`
+	Jobs  []Job  `json:"jobs"`
 	Error string `json:"error,omitempty"`
 }
 
@@ -154,12 +154,12 @@ func main() {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -234,9 +234,9 @@ func getJobStatus(c *gin.Context) {
 	}
 
 	var job Job
-	err := db.QueryRow("SELECT id, prompt, status, created_at, updated_at, video_url, error FROM jobs WHERE id = ?", jobID).
-		Scan(&job.ID, &job.Prompt, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.VideoURL, &job.Error)
-	
+	err := db.QueryRow("SELECT status FROM jobs WHERE id = ?", jobID).
+		Scan(&job.Status)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, StatusResponse{Error: "Job not found"})
@@ -289,10 +289,22 @@ func listJobs(c *gin.Context) {
 	var jobs []Job
 	for rows.Next() {
 		var job Job
-		err := rows.Scan(&job.ID, &job.Prompt, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.VideoURL, &job.Error)
+		var videoURL sql.NullString
+		var jobError sql.NullString
+		err := rows.Scan(&job.ID, &job.Prompt, &job.Status, &job.CreatedAt, &job.UpdatedAt, &videoURL, &jobError)
 		if err != nil {
 			logger.Errorf("Failed to scan job: %v", err)
 			continue
+		}
+		if videoURL.Valid {
+			job.VideoURL = videoURL.String
+		} else {
+			job.VideoURL = ""
+		}
+		if jobError.Valid {
+			job.Error = jobError.String
+		} else {
+			job.Error = ""
 		}
 		jobs = append(jobs, job)
 	}
@@ -307,7 +319,7 @@ func getVideo(c *gin.Context) {
 		return
 	}
 
-	var videoURL string
+	var videoURL sql.NullString
 	err := db.QueryRow("SELECT video_url FROM jobs WHERE id = ? AND status = 'completed'", jobID).Scan(&videoURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -319,12 +331,12 @@ func getVideo(c *gin.Context) {
 		return
 	}
 
-	if videoURL == "" {
+	if !videoURL.Valid {
 		c.JSON(http.StatusNotFound, VideoResponse{Error: "Video URL not available"})
 		return
 	}
 
-	c.JSON(http.StatusOK, VideoResponse{URL: videoURL})
+	c.JSON(http.StatusOK, VideoResponse{URL: videoURL.String})
 }
 
 func handleWebSocket(c *gin.Context) {
@@ -340,19 +352,16 @@ func handleWebSocket(c *gin.Context) {
 	defer pubsub.Close()
 
 	// Handle incoming messages
-	for {
-		select {
-		case msg := <-pubsub.Channel():
-			var job Job
-			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
-				logger.Errorf("Failed to unmarshal job update: %v", err)
-				continue
-			}
+	for msg := range pubsub.Channel() {
+		var job Job
+		if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
+			logger.Errorf("Failed to unmarshal job update: %v", err)
+			continue
+		}
 
-			if err := conn.WriteJSON(job); err != nil {
-				logger.Errorf("Failed to send job update: %v", err)
-				return
-			}
+		if err := conn.WriteJSON(job); err != nil {
+			logger.Errorf("Failed to send job update: %v", err)
+			return
 		}
 	}
-} 
+}

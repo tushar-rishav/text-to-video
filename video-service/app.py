@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global variables
+model_name = "genmo/mochi-1-preview"
 redis_client = None
 db_connection = None
 mochi_pipe = None
@@ -66,14 +67,12 @@ def init_database():
 def load_model():
     """Load the genmo mochi-1 model"""
     global mochi_pipe
+    global model_name
     
     try:
         logger.info("Loading genmo mochi-1 model...")
         
-        # Load the model from Hugging Face
-        model_name = "genmo/mochi-1-preview"
-        
-        mochi_pipe = MochiPipeline.from_pretrained("genmo/mochi-1-preview")
+        mochi_pipe = MochiPipeline.from_pretrained(model_name)
 
         # Enable memory savings
         mochi_pipe.enable_model_cpu_offload()
@@ -84,7 +83,7 @@ def load_model():
         logger.error(f"Failed to load model: {e}")
         raise
 
-def update_job_status(job_id: str, status: str, video_url: str = None, error: str = None):
+def update_job_status(job_id: str, status: str, video_url: str = "", error: str = ""):
     """Update job status in database and publish to Redis"""
     try:
         # Update database
@@ -131,8 +130,8 @@ def generate_video(prompt: str, job_id: str) -> str:
         
         logger.info(f"Video generated successfully for job {job_id}")
         update_job_status(job_id, "completed", video_url=video_url)
-        
-        return video_url            
+
+        return video_url
     except Exception as e:
         error_msg = f"Video generation failed: {str(e)}"
         logger.error(f"Error generating video for job {job_id}: {e}")
@@ -217,7 +216,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "model_loaded": model is not None,
+        "model_loaded": mochi_pipe is not None,
         "gpu_available": torch.cuda.is_available(),
         "redis_connected": redis_client is not None,
         "db_connected": db_connection is not None
