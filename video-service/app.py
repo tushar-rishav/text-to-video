@@ -12,12 +12,11 @@ import pymysql
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from diffusers import DiffusionPipeline
-import cv2
-import numpy as np
-from PIL import Image
+from diffusers import MochiPipeline
+from diffusers.utils import export_to_video
+
 
 # Load environment variables
 load_dotenv()
@@ -29,8 +28,7 @@ logger = logging.getLogger(__name__)
 # Global variables
 redis_client = None
 db_connection = None
-model = None
-tokenizer = None
+mochi_pipe = None
 executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent video generation
 
 app = FastAPI(title="Video Generation Service", version="1.0.0")
@@ -67,7 +65,7 @@ def init_database():
 
 def load_model():
     """Load the genmo mochi-1 model"""
-    global model, tokenizer
+    global mochi_pipe
     
     try:
         logger.info("Loading genmo mochi-1 model...")
@@ -75,26 +73,13 @@ def load_model():
         # Load the model from Hugging Face
         model_name = "genmo/mochi-1-preview"
         
-        # Initialize the pipeline for video generation
-        model = DiffusionPipeline.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            use_safetensors=True
-        )
-        
-        # Move to GPU if available
-        if torch.cuda.is_available():
-            model = model.to("cuda")
-            logger.info("Model loaded on GPU")
-        else:
-            logger.warning("GPU not available, using CPU")
-        
-        # Enable memory efficient attention if available
-        if hasattr(model, "enable_attention_slicing"):
-            model.enable_attention_slicing()
-        
-        logger.info("Model loaded successfully")
-        
+        mochi_pipe = MochiPipeline.from_pretrained("genmo/mochi-1-preview")
+
+        # Enable memory savings
+        mochi_pipe.enable_model_cpu_offload()
+        mochi_pipe.enable_vae_tiling()
+
+        logger.info("Model loaded successfully")        
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         raise
@@ -132,46 +117,22 @@ def update_job_status(job_id: str, status: str, video_url: str = None, error: st
 
 def generate_video(prompt: str, job_id: str) -> str:
     """Generate video using genmo mochi-1 model"""
+    video_url = f"/videos/{job_id}.mp4"
     try:
         logger.info(f"Starting video generation for job {job_id}")
         update_job_status(job_id, "processing")
         
-        # Generate video using the model
-        # Note: This is a simplified implementation. The actual genmo mochi-1 API
-        # might require different parameters and setup
-        with torch.no_grad():
-            # Generate video frames
-            video_frames = model(
-                prompt=prompt,
-                num_inference_steps=50,
-                guidance_scale=7.5,
-                num_frames=84,  # Generate 16 frames
-                height=256,
-                width=256
-            ).frames
-            
-            # Convert to video format
-            video_path = f"/app/videos/{job_id}.mp4"
-            
-            # Save frames as video using OpenCV
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(video_path, fourcc, 8.0, (256, 256))
-            
-            for frame in video_frames:
-                # Convert PIL image to OpenCV format
-                frame_cv = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
-                out.write(frame_cv)
-            
-            out.release()
-            
-            # Create video URL
-            video_url = f"/videos/{job_id}.mp4"
-            
-            logger.info(f"Video generated successfully for job {job_id}")
-            update_job_status(job_id, "completed", video_url=video_url)
-            
-            return video_url
-            
+        # Generate video
+        video_path = f"/app/videos/{job_id}.mp4"
+        with torch.autocast("cuda", torch.bfloat16, cache_enabled=False):
+            frames = mochi_pipe(prompt, num_frames=85).frames[0]
+
+        export_to_video(frames, video_path, fps=30)
+        
+        logger.info(f"Video generated successfully for job {job_id}")
+        update_job_status(job_id, "completed", video_url=video_url)
+        
+        return video_url            
     except Exception as e:
         error_msg = f"Video generation failed: {str(e)}"
         logger.error(f"Error generating video for job {job_id}: {e}")

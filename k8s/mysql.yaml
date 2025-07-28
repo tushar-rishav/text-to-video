@@ -29,6 +29,16 @@ spec:
             configMapKeyRef:
               name: text-to-video-config
               key: DB_NAME
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: text-to-video-secret
+              key: DB_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: text-to-video-secret
+              key: DB_PASSWORD
         volumeMounts:
         - name: mysql-persistent-storage
           mountPath: /var/lib/mysql
