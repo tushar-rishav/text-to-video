@@ -152,7 +152,7 @@ func main() {
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
 		if c.Request.Method == "OPTIONS" {
@@ -164,6 +164,9 @@ func main() {
 	})
 
 	// API routes
+	healthHandler := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
 	api := r.Group("/api")
 	{
 		api.POST("/submit", submitJob)
@@ -171,6 +174,10 @@ func main() {
 		api.GET("/list", listJobs)
 		api.GET("/video", getVideo)
 		api.GET("/ws", handleWebSocket)
+		api.GET("/health", healthHandler)
+		api.HEAD("/health", func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
 	}
 
 	// Serve static files for videos

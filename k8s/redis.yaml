@@ -60,6 +60,10 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: local-storage
+  selector:
+    matchLabels:
+      app: redis
   resources:
     requests:
-      storage: 5Gi 
+      storage: 5Gi

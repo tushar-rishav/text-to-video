@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: tusharrishav/text-to-video-api:latest
+        image: tusharrishav/text-to-video-api:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
@@ -72,12 +72,18 @@ spec:
           httpGet:
             path: /api/health
             port: 8080
+            httpHeaders:
+              - name: Accept
+                value: application/json
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /api/health
             port: 8080
+            httpHeaders:
+              - name: Accept
+                value: application/json
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
@@ -116,6 +122,9 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: local-storage
+  selector:
+    matchLabels:
+      app: video-service
   resources:
     requests:
-      storage: 50Gi
+      storage: 5Gi

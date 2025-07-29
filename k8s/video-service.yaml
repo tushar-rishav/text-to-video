@@ -4,7 +4,7 @@ metadata:
   name: video-service
   namespace: text-to-video
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: video-service
@@ -74,18 +74,6 @@ spec:
         volumeMounts:
         - name: videos-storage
           mountPath: /app/videos
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
       volumes:
       - name: videos-storage
         persistentVolumeClaim:

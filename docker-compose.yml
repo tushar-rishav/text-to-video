@@ -4,10 +4,12 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: p255w0rd
+      MYSQL_USER: tushar
+      MYSQL_PASSWORD: p255w0rd
       MYSQL_DATABASE: text_to_video
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -16,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -25,13 +27,13 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: text_to_video
-      DB_USER: root
-      DB_PASSWORD: password
+      DB_USER: tushar
+      DB_PASSWORD: p255w0rd
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
@@ -47,13 +49,13 @@ services:
   video-service:
     build: ./video-service
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: text_to_video
-      DB_USER: root
-      DB_PASSWORD: password
+      DB_USER: tushar
+      DB_PASSWORD: p255w0rd
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
@@ -76,7 +78,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     networks:
